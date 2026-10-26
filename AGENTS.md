@@ -11,6 +11,8 @@ Standard commands live in `README.md`. Tool versions are pinned in `rust-toolcha
 | Path | What |
 |---|---|
 | `src/` | the `tiny-repo` binary: CLI (`clap`), config (`figment`), HTTP routes (`axum`) |
+| `src/oci/` | OCI protocol types (digest, repository name, tag), parsed at the boundary |
+| `src/store/` | storage contract: `BlobStore`, `RegistryMeta`, `AuthMeta`; in-memory backend and the conformance suite every backend runs (`blob_store_suite!`, `meta_suite!`) |
 | `scripts/` | cloud install/start, `security-scan.sh` |
 | [`STYLEGUIDE.md`](./STYLEGUIDE.md) | how code is written and how dependencies are added. Read before writing code or adding a package. |
 | [`SECURITY.md`](./SECURITY.md) | how to report a vulnerability |

@@ -1,5 +1,10 @@
 mod config;
 mod http;
+// Not wired into the server yet: routes and the fs backend use these from THL-51 on.
+#[cfg_attr(not(test), allow(dead_code, unused_imports))]
+mod oci;
+#[cfg_attr(not(test), allow(dead_code, unused_imports))]
+mod store;
 
 use anyhow::Context as _;
 use clap::{Parser, Subcommand};
