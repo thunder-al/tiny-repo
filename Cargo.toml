@@ -1,0 +1,31 @@
+[package]
+name = "tiny-repo"
+description = "A small self-hosted OCI registry"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/thunder-al/tiny-repo"
+publish = false
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+
+[dependencies]
+anyhow = "1.0.104"
+axum = "0.8.9"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+figment = { version = "0.10.19", features = ["toml", "env"] }
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

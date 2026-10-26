@@ -1,0 +1,9 @@
+# Every entry says why the finding does not apply. Remove the entry when the reason stops being true.
+
+# Containerfile: the release stage is gcr.io/distroless/cc-debian13:nonroot, which sets a non-root
+# user (65532) in the image config; trivy only looks for a USER line.
+DS-0002
+
+# Containerfile: health is checked by the platform over HTTP (/probe/live, /probe/ready);
+# distroless has no shell or curl for a Docker HEALTHCHECK.
+DS-0026

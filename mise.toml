@@ -1,0 +1,12 @@
+[settings]
+# Skip tool releases younger than 3 days (see the Dependencies section of STYLEGUIDE.md).
+minimum_release_age = "3d"
+
+# Rust itself is pinned in rust-toolchain.toml (rustup, IDEs and the Containerfile read it).
+[tools]
+trivy = "0.76.1"
+"cargo:cargo-audit" = "0.22.2"
+
+[tasks."security:scan"]
+description = "cargo audit + trivy fs; pass an image ref to also scan the image"
+run = "bash scripts/security-scan.sh"

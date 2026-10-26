@@ -1,0 +1,15 @@
+.git
+target
+.env
+.env.*
+tiny-repo.toml
+.agents
+.claude
+.cursor
+.idea
+.vscode
+*.md
+!README.md
+logs
+*.log
+.DS_Store

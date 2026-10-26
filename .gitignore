@@ -1,0 +1,24 @@
+# build output
+/target
+
+# local config and secrets
+.env
+.env.*
+tiny-repo.toml
+
+# per-user agent data: Linear binding cache, private skills (see .agents/skills/linear)
+.agents/local/
+
+# editors and agent tools: only shared, project-level files are committed
+.idea
+.vscode/*
+.cursor/*
+!.cursor/environment.json
+.claude/*
+!.claude/skills
+!.claude/settings.json
+!.claude/hooks
+
+logs
+*.log
+.DS_Store
