@@ -2,7 +2,7 @@
 
 A small self-hosted OCI registry: one Rust binary, meant to run on a scale-to-zero platform with S3-compatible storage behind it.
 
-**Status:** early. The server answers health probes and opens its storage (blobs and meta on the local filesystem); the OCI routes come next.
+**Status:** early. Blobs and meta live on the local filesystem; the server takes blob uploads (`/v2/<name>/blobs/uploads/`). Pulling and manifests come next.
 
 ## Layout
 
@@ -35,6 +35,8 @@ Defaults, then `tiny-repo.toml` (path via `--config` or `TINY_REPO_CONFIG`), the
 | `storage.root` | `TINY_REPO_STORAGE__ROOT` | `data` (for `fs`: blobs in `<root>/blobs`) |
 | `meta.type` | `TINY_REPO_META__TYPE` | `storage`: the meta backend of `storage` (for `fs`: `<root>/meta`) |
 | `uploads.dir` | `TINY_REPO_UPLOADS__DIR` | for `fs`: `<root>/uploads`; must be on the same filesystem as `storage.root` |
+| `uploads.max_blob_size` | `TINY_REPO_UPLOADS__MAX_BLOB_SIZE` | `10GiB`: largest single blob (layer), bytes or `KiB`/`MiB`/`GiB`/`TiB`/`KB`/`MB`/`GB`/`TB`; `0` = no limit |
+| `uploads.session_ttl_secs` | `TINY_REPO_UPLOADS__SESSION_TTL_SECS` | `3600`: an upload idle this long is dropped on the next new upload |
 
 `[storage]` and `[meta]` are taken whole: setting any of their keys means setting `type` too, and nothing is inherited from the defaults of another type.
 

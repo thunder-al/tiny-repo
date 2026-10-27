@@ -10,6 +10,7 @@ use super::{StoreError, UnixTime};
 use crate::oci::UploadId;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncRead, AsyncWriteExt, BufWriter};
 
@@ -25,6 +26,8 @@ const STAGED_SUFFIX: &str = ".staged";
 pub struct UploadEntry {
     pub id: UploadId,
     pub started: UnixTime,
+    /// Last write. A session another process is still filling keeps moving it.
+    pub modified: SystemTime,
 }
 
 pub struct Staging {
@@ -134,13 +137,15 @@ impl Staging {
                 Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
                 Err(e) => return Err(e.into()),
             };
+            let modified = meta.modified()?;
             // Birth time where the filesystem records it (ext4, xfs, btrfs), else
             // the last write.
-            let started = meta.created().or_else(|_| meta.modified())?;
+            let started = meta.created().unwrap_or(modified);
 
             out.push(UploadEntry {
                 id,
                 started: UnixTime::from_system(started),
+                modified,
             });
         }
         Ok(out)

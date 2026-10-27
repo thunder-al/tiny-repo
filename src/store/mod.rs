@@ -11,7 +11,7 @@ mod meta;
 mod staging;
 
 #[cfg(test)]
-mod conformance;
+pub(crate) mod conformance;
 #[cfg(test)]
 mod memory;
 

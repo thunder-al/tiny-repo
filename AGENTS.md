@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**tiny-repo** is a small self-hosted OCI registry: a single Rust crate at the repository root. It is at an early stage: the server answers health probes and opens its storage; the OCI routes come next.
+**tiny-repo** is a small self-hosted OCI registry: a single Rust crate at the repository root. It is at an early stage: the server takes blob uploads; pull and manifest routes come next.
 
 Standard commands live in `README.md`. Tool versions are pinned in `rust-toolchain.toml` (Rust) and `mise.toml` (trivy, cargo-audit); tasks are mise tasks (`mise tasks ls`).
 
@@ -11,6 +11,8 @@ Standard commands live in `README.md`. Tool versions are pinned in `rust-toolcha
 | Path | What |
 |---|---|
 | `src/` | the `tiny-repo` binary: CLI (`clap`), config (`figment`), HTTP routes (`axum`) |
+| `src/http/oci/` | OCI routes under `/v2`: repository names with `/` are folded into one path segment (`%2F`) before routing (`path.rs`), `OciError` is the wire format of every error |
+| `src/registry/` | logic between handlers and the store: upload sessions (hashing, digest check, size limit, idle cleanup) |
 | `src/oci/` | OCI protocol types (digest, repository name, tag), parsed at the boundary |
 | `src/store/` | storage contract: `BlobStore`, `RegistryMeta`, `AuthMeta`; `Staging` (every upload is staged in a local file, then `BlobStore::put`); the shared meta `Index` behind single-writer backends; backends `fs/` and in-memory (tests only), chosen by config through `BlobBackend`/`MetaBackend`; the conformance suite every backend runs (`blob_store_suite!`, `meta_suite!`) |
 | `scripts/` | cloud install/start, `security-scan.sh` |
