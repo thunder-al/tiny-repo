@@ -1,6 +1,9 @@
 # build output
 /target
 
+# default storage root of `cargo run -- serve`
+/data/
+
 # local config and secrets
 .env
 .env.*

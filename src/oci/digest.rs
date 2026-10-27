@@ -30,15 +30,19 @@ impl Digest {
 
     /// The encoded part, as used in storage keys (`blobs/<algorithm>/<hex>`).
     pub fn hex(&self) -> String {
-        const HEX: &[u8; 16] = b"0123456789abcdef";
-
-        let mut out = String::with_capacity(self.bytes().len() * 2);
-        for b in self.bytes() {
-            out.push(char::from(HEX[usize::from(b >> 4)]));
-            out.push(char::from(HEX[usize::from(b & 0xf)]));
-        }
-        out
+        encode_hex(self.bytes())
     }
+}
+
+pub(crate) fn encode_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        out.push(char::from(HEX[usize::from(b >> 4)]));
+        out.push(char::from(HEX[usize::from(b & 0xf)]));
+    }
+    out
 }
 
 impl FromStr for Digest {
@@ -57,7 +61,7 @@ impl FromStr for Digest {
 }
 
 /// Lowercase hex of exactly `N` bytes; the spec forbids uppercase for these algorithms.
-fn decode_hex<const N: usize>(hex: &str) -> Option<[u8; N]> {
+pub(crate) fn decode_hex<const N: usize>(hex: &str) -> Option<[u8; N]> {
     fn nibble(c: u8) -> Option<u8> {
         match c {
             b'0'..=b'9' => Some(c - b'0'),

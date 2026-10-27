@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**tiny-repo** is a small self-hosted OCI registry: a single Rust crate at the repository root. It is at the boilerplate stage: the server answers health probes only.
+**tiny-repo** is a small self-hosted OCI registry: a single Rust crate at the repository root. It is at an early stage: the server answers health probes and opens its storage; the OCI routes come next.
 
 Standard commands live in `README.md`. Tool versions are pinned in `rust-toolchain.toml` (Rust) and `mise.toml` (trivy, cargo-audit); tasks are mise tasks (`mise tasks ls`).
 
@@ -12,7 +12,7 @@ Standard commands live in `README.md`. Tool versions are pinned in `rust-toolcha
 |---|---|
 | `src/` | the `tiny-repo` binary: CLI (`clap`), config (`figment`), HTTP routes (`axum`) |
 | `src/oci/` | OCI protocol types (digest, repository name, tag), parsed at the boundary |
-| `src/store/` | storage contract: `BlobStore`, `RegistryMeta`, `AuthMeta`; in-memory backend and the conformance suite every backend runs (`blob_store_suite!`, `meta_suite!`) |
+| `src/store/` | storage contract: `BlobStore`, `RegistryMeta`, `AuthMeta`; `Staging` (every upload is staged in a local file, then `BlobStore::put`); the shared meta `Index` behind single-writer backends; backends `fs/` and in-memory (tests only), chosen by config through `BlobBackend`/`MetaBackend`; the conformance suite every backend runs (`blob_store_suite!`, `meta_suite!`) |
 | `scripts/` | cloud install/start, `security-scan.sh` |
 | [`STYLEGUIDE.md`](./STYLEGUIDE.md) | how code is written and how dependencies are added. Read before writing code or adding a package. |
 | [`SECURITY.md`](./SECURITY.md) | how to report a vulnerability |

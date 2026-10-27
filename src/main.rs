@@ -1,6 +1,7 @@
 mod config;
 mod http;
-// Not wired into the server yet: routes and the fs backend use these from THL-51 on.
+// Opened at startup and held in `AppState`; most of the API is called only by the
+// OCI routes that come next (THL-39, THL-41, THL-53).
 #[cfg_attr(not(test), allow(dead_code, unused_imports))]
 mod oci;
 #[cfg_attr(not(test), allow(dead_code, unused_imports))]
@@ -10,6 +11,7 @@ use anyhow::Context as _;
 use clap::{Parser, Subcommand};
 use config::{Config, LogFormat};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Parser)]
@@ -59,13 +61,18 @@ fn init_tracing(config: &Config) {
 }
 
 async fn serve(config: Config) -> anyhow::Result<()> {
+    let storage = store::open(&config.storage, &config.meta, &config.uploads)
+        .await
+        .context("open storage")?;
+    let state = Arc::new(http::AppState { storage });
+
     let listener = tokio::net::TcpListener::bind(config.listen)
         .await
         .with_context(|| format!("bind {}", config.listen))?;
 
     tracing::info!(addr = %config.listen, "listening");
 
-    axum::serve(listener, http::router())
+    axum::serve(listener, http::router(state))
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("server error")

@@ -7,10 +7,11 @@
 use super::{StoreError, UnixTime};
 use crate::oci::{Digest, ParseError, Reference, RepoName, Tag};
 use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 /// A blob a manifest points at (config or layer), with the size from its descriptor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlobRef {
     pub digest: Digest,
     pub size: u64,
@@ -181,19 +182,35 @@ impl FromStr for TokenId {
 }
 
 crate::oci::display_as_str!(UserName, TokenId);
+crate::oci::serde_as_str!(UserName, TokenId);
 
 /// `sha256` of the whole token. The token itself is never stored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TokenHash(pub [u8; 32]);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl Serialize for TokenHash {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&crate::oci::encode_hex(&self.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for TokenHash {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        crate::oci::decode_hex(&s)
+            .map(Self)
+            .ok_or_else(|| serde::de::Error::custom(ParseError::new("token hash", &s)))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct User {
     pub name: UserName,
     pub admin: bool,
     pub created: UnixTime,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TokenRecord {
     pub id: TokenId,
     pub hash: TokenHash,
