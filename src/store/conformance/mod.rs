@@ -1,15 +1,20 @@
 //! Behavior every backend must have. A backend runs the whole suite with
 //! `blob_store_suite!(<expr>)` / `meta_suite!(<expr>)` in its test module; the
-//! expression builds a fresh, empty store and may `.await`. Each case becomes its
-//! own `#[tokio::test]`, so a failure names the case.
+//! expression builds a fresh, empty store wrapped in a fixture (`Blobs` for blobs,
+//! `Held` for meta) and may `.await`. Each case becomes its own
+//! `#[tokio::test]`, so a failure names the case.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 pub mod blob;
 pub mod meta;
 
+pub use blob::Blobs;
+
 use crate::oci::Digest;
 use sha2::Digest as _;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 macro_rules! cases {
     ($suite:ident, $make:expr; $($case:ident),* $(,)?) => {
@@ -20,8 +25,8 @@ macro_rules! cases {
             $(
                 #[tokio::test]
                 async fn $case() {
-                    let store = $make;
-                    $crate::store::conformance::$suite::$case(&store).await;
+                    let fixture = $make;
+                    $crate::store::conformance::$suite::$case(fixture.as_ref()).await;
                 }
             )*
         }
@@ -32,22 +37,15 @@ macro_rules! blob_store_suite {
     ($make:expr) => {
         $crate::store::conformance::cases!(blob, $make;
             missing_blob,
-            upload_and_read,
-            chunks_concatenate,
-            large_upload,
+            put_and_read,
+            large_blob,
             empty_blob,
             range_reads,
             sha512_blob,
-            commit_existing_blob_keeps_it,
-            concurrent_commits_of_same_blob,
-            concurrent_uploads_are_isolated,
-            abort_ends_upload,
-            unknown_upload,
-            start_upload_twice,
-            failed_append_returns_error,
+            put_existing_blob_keeps_it,
+            concurrent_puts_of_same_blob,
             delete_blob,
             list_paginates_in_digest_order,
-            list_uploads_tracks_open_sessions,
         );
     };
 }
@@ -80,6 +78,57 @@ macro_rules! meta_suite {
 }
 
 pub(crate) use {blob_store_suite, cases, meta_suite};
+
+/// A store with the temp dir it lives in, so the dir outlives it.
+pub struct Held<S> {
+    store: S,
+    _dir: Option<TempDir>,
+}
+
+impl<S> Held<S> {
+    pub fn new(store: S) -> Self {
+        Self { store, _dir: None }
+    }
+
+    pub fn in_dir(store: S, dir: TempDir) -> Self {
+        Self {
+            store,
+            _dir: Some(dir),
+        }
+    }
+}
+
+impl<S> AsRef<S> for Held<S> {
+    fn as_ref(&self) -> &S {
+        &self.store
+    }
+}
+
+/// A fresh directory under the system temp dir, removed on drop.
+pub struct TempDir(PathBuf);
+
+impl TempDir {
+    pub fn new() -> Self {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!("tiny-repo-test-{}-{n}", std::process::id()));
+        // Left over from an earlier run that had the same pid.
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        Self(path)
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
 
 pub fn sha256(data: &[u8]) -> Digest {
     Digest::Sha256(sha2::Sha256::digest(data).into())

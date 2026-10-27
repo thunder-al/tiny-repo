@@ -2,8 +2,8 @@
 //! repositories. Which repository may read a blob is decided by the meta
 //! (`RegistryMeta::repo_has_blob`), not here.
 
-use super::{StoreError, UnixTime};
-use crate::oci::{Digest, UploadId};
+use super::{StagedFile, StoreError, UnixTime};
+use crate::oci::Digest;
 use std::time::Duration;
 use tokio::io::AsyncRead;
 
@@ -44,14 +44,9 @@ pub struct BlobEntry {
     pub modified: UnixTime,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UploadEntry {
-    pub id: UploadId,
-    pub started: UnixTime,
-}
-
-/// The store trusts the caller with digests: the core hashes the upload while it
-/// streams and calls `commit` only after the digest matched.
+/// Bytes come in only as a finished `StagedFile`, whatever the backend: the core
+/// stages the upload locally, hashing it as it streams, and calls `put` only after
+/// the digest matched. The store trusts the caller with that digest.
 pub trait BlobStore {
     /// Size of the blob, `None` if it is not stored.
     async fn stat(&self, digest: &Digest) -> Result<Option<u64>, StoreError>;
@@ -83,24 +78,7 @@ pub trait BlobStore {
         limit: usize,
     ) -> Result<Vec<BlobEntry>, StoreError>;
 
-    /// Fails with `AlreadyExists` if the id is taken.
-    async fn start_upload(&self, id: &UploadId) -> Result<(), StoreError>;
-
-    /// Appends the whole body to the upload and returns the number of bytes written.
-    /// After an error the upload's content is undefined; the caller aborts it.
-    async fn append(
-        &self,
-        id: &UploadId,
-        body: impl AsyncRead + Send + Unpin,
-    ) -> Result<u64, StoreError>;
-
-    /// Moves the upload into the blob `digest` and ends the session. If the blob is
-    /// already stored, the upload is dropped and the stored blob is kept.
-    async fn commit(&self, id: &UploadId, digest: &Digest) -> Result<(), StoreError>;
-
-    /// Returns whether the upload existed.
-    async fn abort(&self, id: &UploadId) -> Result<bool, StoreError>;
-
-    /// Unfinished uploads, for cleaning up stale ones.
-    async fn list_uploads(&self) -> Result<Vec<UploadEntry>, StoreError>;
+    /// Moves the staged file into the blob `digest`. If the blob is already stored,
+    /// the file is dropped and the stored blob is kept.
+    async fn put(&self, digest: &Digest, file: StagedFile) -> Result<(), StoreError>;
 }
