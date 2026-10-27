@@ -1,9 +1,9 @@
 mod config;
 mod http;
-// Opened at startup and held in `AppState`; most of the API is called only by the
-// OCI routes that come next (THL-39, THL-41, THL-53).
+// Parts of the API are used only by the routes that come next (THL-39, THL-41).
 #[cfg_attr(not(test), allow(dead_code, unused_imports))]
 mod oci;
+mod registry;
 #[cfg_attr(not(test), allow(dead_code, unused_imports))]
 mod store;
 
@@ -12,6 +12,7 @@ use clap::{Parser, Subcommand};
 use config::{Config, LogFormat};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Parser)]
@@ -64,7 +65,12 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     let storage = store::open(&config.storage, &config.meta, &config.uploads)
         .await
         .context("open storage")?;
-    let state = Arc::new(http::AppState { storage });
+    let uploads = registry::Uploads::new(
+        // 0 turns the limit off.
+        Some(config.uploads.max_blob_size.0).filter(|&n| n > 0),
+        Duration::from_secs(config.uploads.session_ttl_secs),
+    );
+    let state = Arc::new(http::AppState { storage, uploads });
 
     let listener = tokio::net::TcpListener::bind(config.listen)
         .await

@@ -61,6 +61,66 @@ pub struct UploadsConfig {
     /// Staging directory for uploads in progress. Default for `fs` storage:
     /// `<root>/uploads`, which keeps it on the same filesystem as the blobs.
     pub dir: Option<PathBuf>,
+    /// Largest blob (one layer, not a whole image) accepted, as bytes or with a
+    /// suffix (`500MiB`, `50GiB`, `2TB`). `0` turns the limit off.
+    pub max_blob_size: ByteSize,
+    /// An upload with no request for this long is dropped, with its staged file.
+    /// A request in progress keeps it alive however long it takes.
+    pub session_ttl_secs: u64,
+}
+
+/// A size in bytes, written as a number or a number with a unit suffix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct ByteSize(pub u64);
+
+impl std::str::FromStr for ByteSize {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        const UNITS: [(&str, u64); 9] = [
+            ("KiB", 1 << 10),
+            ("MiB", 1 << 20),
+            ("GiB", 1 << 30),
+            ("TiB", 1 << 40),
+            ("KB", 1_000),
+            ("MB", 1_000_000),
+            ("GB", 1_000_000_000),
+            ("TB", 1_000_000_000_000),
+            ("B", 1),
+        ];
+
+        let s = s.trim();
+        let (number, unit) = UNITS
+            .iter()
+            .find_map(|(suffix, unit)| s.strip_suffix(suffix).map(|n| (n.trim_end(), *unit)))
+            .unwrap_or((s, 1));
+
+        number
+            .parse::<u64>()
+            .ok()
+            .and_then(|n| n.checked_mul(unit))
+            .map(Self)
+            .ok_or_else(|| format!("invalid size {s:?}, expected e.g. 10GiB, 500MB or 1048576"))
+    }
+}
+
+impl<'de> Deserialize<'de> for ByteSize {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // TOML and env give a number or a string; figment hands env values over
+        // already parsed, so `0` arrives as an integer.
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Number(u64),
+            Text(String),
+        }
+
+        match Raw::deserialize(deserializer)? {
+            Raw::Number(n) => Ok(Self(n)),
+            Raw::Text(s) => s.parse().map_err(serde::de::Error::custom),
+        }
+    }
 }
 
 impl Default for StorageConfig {
@@ -87,7 +147,11 @@ impl Default for Config {
             },
             storage: StorageConfig::default(),
             meta: MetaConfig::default(),
-            uploads: UploadsConfig { dir: None },
+            uploads: UploadsConfig {
+                dir: None,
+                max_blob_size: ByteSize(10 << 30),
+                session_ttl_secs: 3600,
+            },
         }
     }
 }
@@ -132,6 +196,28 @@ mod tests {
         );
         assert_eq!(c.meta, MetaConfig::Storage {});
         assert_eq!(c.uploads.dir, None);
+        assert_eq!(c.uploads.max_blob_size, ByteSize(10 << 30));
+        assert_eq!(c.uploads.session_ttl_secs, 3600);
+    }
+
+    #[test]
+    fn blob_size_limit_with_units_or_off() {
+        for (value, bytes) in [
+            ("\"50GiB\"", 50 << 30),
+            ("\"500 MB\"", 500_000_000),
+            ("\"2TB\"", 2_000_000_000_000),
+            ("1048576", 1 << 20),
+            ("0", 0),
+        ] {
+            let c = parse(&format!("[uploads]\nmax_blob_size = {value}")).unwrap();
+            assert_eq!(c.uploads.max_blob_size, ByteSize(bytes), "{value}");
+        }
+        for value in ["\"10 GiBs\"", "\"-1GB\"", "\"lots\"", "\"99999999TiB\""] {
+            assert!(
+                parse(&format!("[uploads]\nmax_blob_size = {value}")).is_err(),
+                "{value} should be rejected"
+            );
+        }
     }
 
     #[test]

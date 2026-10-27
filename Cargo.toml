@@ -21,10 +21,15 @@ axum = "0.8.9"
 bytes = "1.12.1"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 figment = { version = "0.10.19", features = ["toml", "env"] }
+getrandom = "0.4.3"
+http-body-util = "0.1.5"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+sha2 = "0.11.1"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "signal", "io-util", "sync", "fs"] }
+tokio-util = { version = "0.7.20", features = ["io"] }
+tower = { version = "0.5.3", features = ["util"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 
@@ -32,6 +37,3 @@ tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
-
-[dev-dependencies]
-sha2 = "0.11.1"

@@ -260,6 +260,13 @@ mod tests {
     use super::*;
     use crate::store::conformance::TempDir;
 
+    fn uploads_in(dir: Option<PathBuf>) -> UploadsConfig {
+        UploadsConfig {
+            dir,
+            ..crate::config::Config::default().uploads
+        }
+    }
+
     fn fs(root: &Path) -> StorageConfig {
         StorageConfig::Fs {
             root: root.to_owned(),
@@ -271,13 +278,9 @@ mod tests {
         let dir = TempDir::new();
         let root = dir.path().join("data");
 
-        let storage = open(
-            &fs(&root),
-            &MetaConfig::Storage {},
-            &UploadsConfig { dir: None },
-        )
-        .await
-        .unwrap();
+        let storage = open(&fs(&root), &MetaConfig::Storage {}, &uploads_in(None))
+            .await
+            .unwrap();
 
         assert_eq!(storage.staging.dir(), root.join("uploads"));
         for sub in [
@@ -301,9 +304,7 @@ mod tests {
         let storage = open(
             &fs(&root),
             &MetaConfig::Storage {},
-            &UploadsConfig {
-                dir: Some(uploads.clone()),
-            },
+            &uploads_in(Some(uploads.clone())),
         )
         .await
         .unwrap();
@@ -316,12 +317,7 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("meta")).unwrap();
         std::fs::write(dir.path().join("meta/index.json"), b"not json").unwrap();
 
-        let result = open(
-            &fs(dir.path()),
-            &MetaConfig::Storage {},
-            &UploadsConfig { dir: None },
-        )
-        .await;
+        let result = open(&fs(dir.path()), &MetaConfig::Storage {}, &uploads_in(None)).await;
         assert!(matches!(
             result,
             Err(OpenError::Store(StoreError::Corrupt { .. }))
@@ -348,9 +344,7 @@ mod tests {
         let result = open(
             &fs(dir.path()),
             &MetaConfig::Storage {},
-            &UploadsConfig {
-                dir: Some(uploads.clone()),
-            },
+            &uploads_in(Some(uploads.clone())),
         )
         .await;
         let _ = std::fs::remove_dir_all(&uploads);
