@@ -26,6 +26,14 @@ const TMP_SUFFIX: &str = ".tmp";
 
 /// Writes `data` to `path` so that readers see the old file or the new one in full.
 async fn write_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
+    replace(path, data).await?;
+    sync_parent(path).await
+}
+
+/// `write_atomic` without the final directory fsync: on error `path` still holds
+/// the old content; on success it holds the new one, durable once the directory is
+/// synced.
+async fn replace(path: &Path, data: &[u8]) -> io::Result<()> {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(TMP_SUFFIX);
 
@@ -34,8 +42,7 @@ async fn write_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
     file.sync_all().await?;
     drop(file);
 
-    fs::rename(&tmp, path).await?;
-    sync_parent(path).await
+    fs::rename(&tmp, path).await
 }
 
 /// Makes a rename or unlink in the file's directory durable.

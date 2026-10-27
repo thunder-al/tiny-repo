@@ -1,4 +1,4 @@
-use super::{remove_tmp_files, sync_parent, write_atomic};
+use super::{remove_tmp_files, replace, sync_parent, write_atomic};
 use crate::oci::Digest;
 use crate::store::StoreError;
 use crate::store::index::{Index, IndexStorage, IndexedMeta};
@@ -88,7 +88,16 @@ impl IndexStorage for FsMetaFiles {
             index,
         })
         .map_err(io::Error::other)?;
-        Ok(write_atomic(&self.index, &data).await?)
+        replace(&self.index, &data).await?;
+
+        // The new index is in place and is what a restart reads, so memory has to
+        // move to it: an error here would keep the old index in memory and the next
+        // write would put it back on disk, dropping this change. A failing directory
+        // fsync means a failing disk, which the next write reports.
+        if let Err(err) = sync_parent(&self.index).await {
+            tracing::error!(path = %self.index.display(), %err, "cannot sync meta directory");
+        }
+        Ok(())
     }
 
     async fn put_body(&self, digest: &Digest, body: &Bytes) -> Result<(), StoreError> {

@@ -313,6 +313,8 @@ impl Index {
 /// Where an `IndexedMeta` keeps its state. `save` gets every new index before it
 /// becomes visible, so an error leaves the old state in place.
 pub trait IndexStorage {
+    /// An error must mean the stored index is still the previous one; once the new
+    /// one is stored, `save` succeeds.
     async fn save(&self, index: &Index) -> Result<(), StoreError>;
 
     /// Bodies are addressed by digest and shared by repositories; storing one that
