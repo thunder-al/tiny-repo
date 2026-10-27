@@ -240,6 +240,22 @@ async fn post_with_digest_and_body() {
 }
 
 #[tokio::test]
+async fn post_with_malformed_digest_leaves_no_session() {
+    let app = app().await;
+
+    let resp = app
+        .send(
+            Method::POST,
+            "/v2/app/blobs/uploads/?digest=sha256:nothex",
+            Body::from(fixture(100, 13)),
+        )
+        .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(error_code(resp).await, "DIGEST_INVALID");
+    assert_eq!(app.staged_count().await, 0);
+}
+
+#[tokio::test]
 async fn sha512_digest() {
     let app = app().await;
     let data = fixture(2000, 5);

@@ -57,11 +57,12 @@ pub async fn start(
         }
     }
 
+    // Before the session exists: a rejected request must not leave one behind.
+    let digest = q.digest.as_deref().map(parse_digest).transpose()?;
     let id = state.uploads.start(&state.storage.staging, &repo).await?;
 
-    match &q.digest {
+    match digest {
         Some(digest) => {
-            let digest = parse_digest(digest)?;
             state
                 .uploads
                 .finish(&state.storage, &repo, &id, &digest, reader(body))
